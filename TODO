@@ -1,3 +1,12 @@
+When tying a file, return a tied scalar -- only return a tied hash when tying
+a directory.  (Will this work seamlessly?)
+
+Change option parsing to hash-style, with multiple boolean options instead of
+current multilevel mode.
+
+Restrict access to directory tree first tied to, for security?  What about
+following symlinks outside of the tree?
+
 Document code, add comprehensive tests for all code paths, verify manpage!
 
 Change options to use hash and/or key/value pairs?
