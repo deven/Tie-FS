@@ -1,6 +1,5 @@
 Changes
-File.pm
+Filesystem.pm
 MANIFEST
 Makefile.PL
-TODO
-t/file.t
+t/dir.t
