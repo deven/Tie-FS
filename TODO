@@ -1,0 +1,33 @@
+Document code, add comprehensive tests for all code paths, verify manpage!
+
+Change options to use hash and/or key/value pairs?
+
+Add default "tie $Tie::Dir,Tie::Dir"?
+
+Allow access to filehandles?  ($hash{\*STDIN}, $hash{\*STDOUT}, $hash{"-"}?)
+
+Interface with IO::* classes?
+
+Interface with Compress::Zlib (or external gzip program) for Tie::File::gz?
+Possibly have Tie::File::tar and Tie::File::tgz?
+
+Separate flags for create/write/delete/clear?
+
+Method to set directory?  Allow multiple directories as a search path?  (Each
+with separate access flags?)
+
+Cache option? (watch modtime)  (Perhaps an IO::Buffer module or such?)
+
+FakeWrite option?  (Or should this use Cache as a directory in path?)
+
+Warning option for carp instead of croak?  Silent option to use return vals?
+
+Ability to return file stats in array context or as array reference?  (Maybe
+return tied scalars that evaluate as the file contents?  Could make "defined"
+tests more efficient and allow copying with preserved attributes...)
+
+Add Recursive option to process subdirectories?  Should keys() show only top
+level?  Have $hash{$dir} return a new tied hash on the directory?  (Strip any
+trailing slashes when initializing...)
+
+Add option to sort directory listings, default on?
