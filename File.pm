@@ -1,6 +1,6 @@
 package Tie::File;
 
-$VERSION = '0.50';
+$VERSION = '0.10';
 
 =head1 NAME
 
@@ -8,7 +8,7 @@ Tie::File - Perl module to read/write files using a tied hash
 
 =head1 SYNOPSIS
 
-  use Tie::File;
+  use Tie::File;                     # Initialize Tie::File module.
 
   tie %hash,Tie::File,$flag,$dir;    # Ties %hash to files in $dir.
 
@@ -28,28 +28,45 @@ Tie::File - Perl module to read/write files using a tied hash
 
 =head1 DESCRIPTION
 
-This extension ties a hash to files.  If no directory is specified in
-the $dir parameter, then the current directory is used.  The $flag
-parameter defaults to the "Create" flag.
+This extension ties a hash to files in a directory.  The $flag parameter
+specifies an access mode, defaulting to "Create" mode.  If no directory is
+specified with the $dir parameter, "." is used for the current directory.
 
-The following (case-insensitive) flags are available:
+The following (case-insensitive) access flags are available:
 
   ReadOnly      Access is strictly read-only.
   Create        Files may be created but not overwritten or deleted.
-  Overwrite     Regular files may be created, overwritten or deleted.
+  Overwrite     Files may be created, overwritten or deleted.
   ClearDir      Also allow files to be cleared (all deleted at once).
 
 The pathname specified as a key to the hash may either be a relative path
 or an absolute path.  For relative paths, the default directory specified
-to "tie" will be prepended to the path.
+to tie() will be prepended to the path.
+
+The exists() function will be true if the specified path exists, including
+directories and non-regular files (such as symbolic links).  Directories and
+non-regular files will return undef; only regular files will return a defined
+values.  Empty regular files return "", not undef.  Attempting to store undef
+in the tied will have no effect.
+
+The keys() function will scan the directory (without sorting it), eliminate
+"." and ".." entries and append "/" for directories.  (values() and each()
+will follow the same rules for selecting entries.)  The following code will
+retrieve a sorted list of subdirectories:
+
+  @subdirs = sort grep {s/\/$//} keys %hash;
 
 =head1 CAVEATS
 
-Unless an absolute path was specified to "tie", later "chdir" commands
-will affect the paths accessed by the tied hash with relative paths.
+Unless an absolute path was specified to tie(), a later chdir() will affect
+the paths accessed by the tied hash with relative paths.
 
-Only regular files are defined when fetched from the tied hash.  However,
-directories and other non-regular files will pass an "exists" test.
+A symbolic link is considered a non-regular file; it will not be followed
+unless a "/" follows the link name and the link points to a directory.
+
+To perform a defined() test, the entire file must be read into memory, even
+if it will be discarded immediately after the test.  The exists() function
+does not need to read the contents of a file.
 
 =head1 AUTHOR
 
@@ -97,7 +114,8 @@ sub FETCH {
 
    $file = "$self->{dir}/$file" unless substr($file,0,1) eq "/";
 
-   return undef unless -f $file;
+   lstat $file;
+   return undef unless -f _;
 
    local $/;
    undef $/;
@@ -124,16 +142,17 @@ sub STORE {
 
    $file = "$self->{dir}/$file" unless substr($file,0,1) eq "/";
 
+   lstat $file;
+
    if ($flag eq "readonly") {
       croak "$class: won't overwrite \"$file\", flag is \"readonly\""
-         if -e $file;
+         if -e _;
       croak "$class: won't create \"$file\", flag is \"readonly\"";
    } elsif ($flag eq "create") {
       croak "$class: won't overwrite \"$file\", flag is \"create\""
-         if -e $file;
+         if -e _;
    } elsif ($flag eq "overwrite" or $flag eq "cleardir") {
-      croak "$class: can't overwrite non-file \"$file\"" if -e $file and
-         not -f $file;
+      croak "$class: can't overwrite non-file \"$file\"" if -e _ and not -f _;
    } else {
       die;
    }
@@ -185,7 +204,7 @@ sub CLEAR {
       unless $flag eq "cleardir";
 
    opendir $handle,$dir or croak "$class: opendir \"$dir\": $!";
-   my @files = grep {-f $_} map {"$dir/$_"} readdir $handle;
+   my @files = grep {lstat $_ and -f _} map {"$dir/$_"} readdir $handle;
    close $handle;
 
    my $file;
@@ -208,9 +227,7 @@ sub EXISTS {
 sub FIRSTKEY {
    my $self = shift;
 
-   my $dir = $self->{dir};
    my $handle = $self->{dir_handle};
-   my $file;
 
    rewinddir $handle;
    return $self->NEXTKEY();
@@ -225,7 +242,10 @@ sub NEXTKEY {
 
    {
       $file = readdir $handle;
-      redo if defined($file) and $file eq "." || $file eq "..";
+      last unless defined $file;
+      redo if $file eq "." || $file eq "..";
+      lstat "$dir/$file";
+      $file .= "/" if -d _;
    }
    return $file;
 }
