@@ -8,7 +8,7 @@
 
 BEGIN { $| = 1; print "1..3\n"; }
 END {print "not ok 1\n" unless $loaded;}
-use Tie::File;
+use Tie::Filesystem;
 $loaded = 1;
 print "ok 1\n";
 
@@ -18,11 +18,12 @@ print "ok 1\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-$x = tie %file,Tie::File;
+$x = tie %fs,Tie::Filesystem;
 print "not " unless defined $x;
 print "ok 2\n";
 
-print "not " unless $file{"MANIFEST"} eq `cat MANIFEST`;
+{ local $/; open IN, "<MANIFEST"; $_ = <IN>; close IN; }
+print "not " unless $_ eq $fs{"MANIFEST"};
 print "ok 3\n";
 
 # Should test exists, defined, length=0, length>0, errors, overwrite, clear...
