@@ -1,4 +1,11 @@
-Revision history for Perl module Tie::File.
+Revision history for Perl module Tie::Filesystem.
 
-0.00  Thu May 29 13:52:52 EDT 1997
-	- Initial version, not released.
+0.9.0  Sat Jul 24 15:30:48 EDT 2004
+	- Prerelease version.
+
+	- This module was originally going to be released in May 1997 as
+	  Tie::File, but that name was already claimed years earlier -- even
+	  though it was never actually used.  There was no administrative
+	  process in place to reclaim an unused name, and eventually another
+	  (unrelated) Tie::File module was released.  This module was finally
+	  renamed to Tie::Filesystem, which is more appropriate anyhow.
