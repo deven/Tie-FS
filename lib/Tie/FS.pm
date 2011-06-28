@@ -1,16 +1,26 @@
-package Tie::Filesystem;
+package Tie::FS;
 
-$VERSION = '0.9.0';
+use 5.006;
+use strict;
+use warnings;
 
 =head1 NAME
 
-Tie::Filesystem - Perl module to read/write files using a tied hash
+Tie::FS - Read and write files using a tied hash
+
+=head1 VERSION
+
+Version 0.1.0
+
+=cut
+
+our $VERSION = '0.1.0';
 
 =head1 SYNOPSIS
 
-  use Tie::Filesystem;
+  use Tie::FS;                       # Initialize Tie::FS module.
 
-  tie %hash, Tie::Filesystem, $flag, $dir; # Ties %hash to files in $dir.
+  tie %hash, Tie::FS, $flag, $dir;   # Ties %hash to files in $dir.
 
   @files = keys %hash;               # Retrieves directory list of $dir.
 
@@ -32,33 +42,95 @@ This module ties a hash to a directory in the filesystem.  If no directory
 is specified in the $dir parameter, then "." (the current directory) is
 assumed.  The $flag parameter defaults to the "Create" flag.
 
-The following (case-insensitive) flags are available:
+The following (case-insensitive) access flags are available:
 
   ReadOnly      Access is strictly read-only.
   Create        Files may be created but not overwritten or deleted.
-  Overwrite     Regular files may be created, overwritten or deleted.
+  Overwrite     Files may be created, overwritten or deleted.
   ClearDir      Also allow files to be cleared (all deleted at once).
 
 The pathname specified as a key to the hash may either be a relative path
 or an absolute path.  For relative paths, the default directory specified
-to "tie" will be prepended to the path.
+to tie() will be prepended to the path.
+
+The exists() function will be true if the specified path exists, including
+directories and non-regular files (such as symbolic links).  Directories and
+non-regular files will return undef; only regular files will return a defined
+values.  Empty regular files return "", not undef.  Attempting to store undef
+in the tied will have no effect.
+
+The keys() function will scan the directory (without sorting it), eliminate
+"." and ".." entries and append "/" for directories.  (values() and each()
+will follow the same rules for selecting entries.)  The following code will
+retrieve a sorted list of subdirectories:
+
+  @subdirs = sort grep {s/\/$//} keys %hash;
 
 =head1 CAVEATS
 
-Unless an absolute path was specified to "tie", later "chdir" commands
-will affect the paths accessed by the tied hash with relative paths.
+Unless an absolute path was specified to tie(), a later chdir() will affect
+the paths accessed by the tied hash with relative paths.
 
-Only regular files are defined when fetched from the tied hash.  However,
-directories and other non-regular files will pass an "exists" test.
+A symbolic link is considered a non-regular file; it will not be followed
+unless a "/" follows the link name and the link points to a directory.
+
+To perform a defined() test, the entire file must be read into memory, even
+if it will be discarded immediately after the test.  The exists() function
+does not need to read the contents of a file.
 
 =head1 AUTHOR
 
 Deven T. Corzine <deven@ties.org>
 
-=cut
+=head1 BUGS
 
-use strict;
-use vars qw($VERSION);
+Please report any bugs or feature requests to C<bug-tie-fs at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Tie-FS>.
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc Tie::FS
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Tie-FS>
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/Tie-FS>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Tie-FS>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/Tie-FS/>
+
+=back
+
+=head1 ACKNOWLEDGEMENTS
+
+File::Slurp was the inspiration for this module, which is intended to
+provide similar functionality in a more "Perlish" way.
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2011 Deven T. Corzine.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of either: the GNU General Public License as published
+by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
+
+=cut
 
 use Carp;
 use Symbol;
@@ -97,7 +169,8 @@ sub FETCH {
 
    $file = "$self->{dir}/$file" unless substr($file, 0, 1) eq "/";
 
-   return undef unless -f $file;
+   lstat $file;
+   return undef unless -f _;
 
    local $/;
    undef $/;
@@ -124,16 +197,17 @@ sub STORE {
 
    $file = "$self->{dir}/$file" unless substr($file, 0, 1) eq "/";
 
+   lstat $file;
+
    if ($flag eq "readonly") {
       croak "$class: won't overwrite \"$file\", flag is \"readonly\""
-         if -e $file;
+         if -e _;
       croak "$class: won't create \"$file\", flag is \"readonly\"";
    } elsif ($flag eq "create") {
       croak "$class: won't overwrite \"$file\", flag is \"create\""
-         if -e $file;
+         if -e _;
    } elsif ($flag eq "overwrite" or $flag eq "cleardir") {
-      croak "$class: can't overwrite non-file \"$file\"" if -e $file and
-         not -f $file;
+      croak "$class: can't overwrite non-file \"$file\"" if -e _ and not -f _;
    } else {
       die;
    }
@@ -185,7 +259,7 @@ sub CLEAR {
       unless $flag eq "cleardir";
 
    opendir $handle, $dir or croak "$class: opendir \"$dir\": $!";
-   my @files = grep {-f $_} map {"$dir/$_"} readdir $handle;
+   my @files = grep {lstat $_ and -f _} map {"$dir/$_"} readdir $handle;
    close $handle;
 
    my $file;
@@ -208,9 +282,7 @@ sub EXISTS {
 sub FIRSTKEY {
    my $self = shift;
 
-   my $dir = $self->{dir};
    my $handle = $self->{dir_handle};
-   my $file;
 
    rewinddir $handle;
    return $self->NEXTKEY();
@@ -225,7 +297,10 @@ sub NEXTKEY {
 
    {
       $file = readdir $handle;
-      redo if defined($file) and $file eq "." || $file eq "..";
+      last unless defined $file;
+      redo if $file eq "." || $file eq "..";
+      lstat "$dir/$file";
+      $file .= "/" if -d _;
    }
    return $file;
 }
@@ -236,4 +311,4 @@ sub DESTROY {
    closedir $self->{dir_handle};
 }
 
-1;
+1; # End of Tie::FS
