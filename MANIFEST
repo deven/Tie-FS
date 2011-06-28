@@ -9,3 +9,4 @@ t/01-fs.t
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
+META.yml                                 Module meta-data (added by MakeMaker)
