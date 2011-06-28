@@ -8,7 +8,7 @@
 
 BEGIN { $| = 1; print "1..3\n"; }
 END {print "not ok 1\n" unless $loaded;}
-use Tie::Filesystem;
+use Tie::FS;
 $loaded = 1;
 print "ok 1\n";
 
@@ -18,7 +18,7 @@ print "ok 1\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-$x = tie %fs,Tie::Filesystem;
+$x = tie %fs, Tie::FS;
 print "not " unless defined $x;
 print "ok 2\n";
 
